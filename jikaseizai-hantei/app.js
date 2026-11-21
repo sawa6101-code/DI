@@ -71,6 +71,7 @@ function runMarketCheck(){
  if(!form||!strength){box.className="market-check pending";box.innerHTML="<b>市販剤形の自動照合：入力待ち</b><p>製剤後の剤形と規格（濃度・含量）を入力してください。</p>";return null}
  if(!masterReady||!master.length){box.className="market-check pending";box.innerHTML="<b>市販剤形の自動照合：マスター未読込</b><p>医薬品マスターを読み込めないため、算定可否は判定できません。</p>";return null}
  const key=ingredientKey(selectedDrug);
+ if(!selectedDrug.genericName&&!selectedDrug.ingredient){box.className="market-check pending";box.innerHTML="<b>市販剤形の自動照合：照合不能</b><p>選択薬剤に一般名処方の標準的な記載がありません。商品名だけで成分同一性を推定すると誤判定につながるため、自動照合を停止しました。</p>";return null}
  if(!key){box.className="market-check pending";box.innerHTML="<b>市販剤形の自動照合：照合不能</b><p>選択薬剤の一般名情報が不足しています。一般名・成分の確認が必要です。</p>";return null}
  const date=$("rxDate").value;
  const related=master.filter(d=>d!==selectedDrug&&currentOnDate(d,date)&&ingredientKey(d)===key);
@@ -81,7 +82,7 @@ function runMarketCheck(){
  const list=arr=>arr.slice(0,12).map(d=>'<li>'+esc(d.name)+' <span class="small">('+esc(extractStrength(d.genericName||d.officialName||d.name)||"規格不明")+', '+esc(d.code)+')</span></li>').join("");
  if(exact.length){box.className="market-check blocked";box.innerHTML="<b>市販製剤あり：同一成分・同一剤形・同一規格に一致</b><p>以下の収載品が見つかりました。原則として自家製剤加算は算定不可です。供給上の問題で必要数量を確保できない場合のみ、入手困難の根拠・薬剤名等を確認してください。</p><ul>"+list(exact)+"</ul>";}
  else if(unknown.length){box.className="market-check pending";box.innerHTML="<b>市販製剤の可能性あり：規格情報不足</b><p>同一成分・同一剤形の候補がありますが、マスター上の規格を確定できません。算定可とは判定せず、候補の規格を確認してください。</p><ul>"+list(unknown)+"</ul>";}
- else{box.className="market-check clear";box.innerHTML="<b>一致する市販製剤なし（マスター照合結果）</b><p>同一成分・同一剤形・同一規格の収載品は見つかりませんでした。これは算定可の確定ではありません。マスター収載範囲・一般名の同一性・製剤後規格を確認したうえで、他の算定要件を判定します。</p>";}
+ else{box.className="market-check clear";const other=sameForm.length?("<p>同一成分・同一剤形で別規格の収載品：</p><ul>"+list(sameForm)+"</ul>"):"";box.innerHTML="<b>同一規格の市販製剤なし（マスター照合結果）</b><p>同一成分・同一剤形・同一規格の収載品は見つかりませんでした。これは算定可の確定ではありません。マスター収載範囲・一般名の同一性・製剤後規格を確認したうえで、他の算定要件を判定します。</p>"+other;}
  return result;
 }
 function checks(){return ["c1","c2","c4","c5","c6"].map(id=>$(id).checked)}
