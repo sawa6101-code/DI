@@ -9,6 +9,7 @@ function extractStrength(s){
  const hits=[...t.matchAll(/(\d+(?:\.\d+)?)(mg|ug|g|%|mL|ml|単位|万単位|億単位)/gi)].map(m=>m[1]+m[2].toLowerCase());
  return hits.length?hits.join("+"):"";
 }
+function productStrength(d){return extractStrength(d.strength)||extractStrength(d.genericName)||extractStrength(d.officialName)||extractStrength(d.name)}
 function detectForm(d){
  const s=[d.genericName,d.officialName,d.name].filter(Boolean).join(" ").normalize("NFKC");
  if(/ドライシロップ/.test(s))return"ドライシロップ";
@@ -37,7 +38,7 @@ function currentOnDate(d,date){
  return !end||end==="0"||end==="00000000"||end==="99999999"||end>=iso;
 }
 function renderResults(items){
- $("searchResults").innerHTML=items.length?items.slice(0,100).map((d,i)=>'<div class="result"><div><b>'+esc(d.name)+'</b><div class="small">'+esc([d.genericName||d.ingredient,d.strength||extractStrength(d.name),detectForm(d),d.company,d.code].filter(Boolean).join(" / "))+'</div></div><button data-pick="'+i+'">選択</button></div>').join(""):'<p class="muted">該当する医薬品がありません。</p>';
+ $("searchResults").innerHTML=items.length?items.slice(0,100).map((d,i)=>'<div class="result"><div><b>'+esc(d.name)+'</b><div class="small">'+esc([d.genericName||d.ingredient,productStrength(d),detectForm(d),d.company,d.code].filter(Boolean).join(" / "))+'</div></div><button data-pick="'+i+'">選択</button></div>').join(""):'<p class="muted">該当する医薬品がありません。</p>';
  [...$("searchResults").querySelectorAll("[data-pick]")].forEach(b=>b.onclick=()=>selectDrug(items[+b.dataset.pick]));
 }
 function selectDrug(d){
@@ -76,10 +77,10 @@ function runMarketCheck(){
  const date=$("rxDate").value;
  const related=master.filter(d=>d!==selectedDrug&&currentOnDate(d,date)&&ingredientKey(d)===key);
  const sameForm=related.filter(d=>detectForm(d)===form);
- const exact=sameForm.filter(d=>extractStrength(d.genericName||d.officialName||d.name)===strength);
- const unknown=sameForm.filter(d=>!extractStrength(d.genericName||d.officialName||d.name));
+ const exact=sameForm.filter(d=>productStrength(d)===strength);
+ const unknown=sameForm.filter(d=>!productStrength(d));
  const result={key,form,strength,related,sameForm,exact,unknown,confidence:exact.length?"一致製剤あり":unknown.length?"規格情報不足":"一致製剤なし"};
- const list=arr=>arr.slice(0,12).map(d=>'<li>'+esc(d.name)+' <span class="small">('+esc(extractStrength(d.genericName||d.officialName||d.name)||"規格不明")+', '+esc(d.code)+')</span></li>').join("");
+ const list=arr=>arr.slice(0,12).map(d=>'<li>'+esc(d.name)+' <span class="small">('+esc(productStrength(d)||"規格不明")+', '+esc(d.code)+')</span></li>').join("");
  if(exact.length){box.className="market-check blocked";box.innerHTML="<b>市販製剤あり：同一成分・同一剤形・同一規格に一致</b><p>以下の収載品が見つかりました。原則として自家製剤加算は算定不可です。供給上の問題で必要数量を確保できない場合のみ、入手困難の根拠・薬剤名等を確認してください。</p><ul>"+list(exact)+"</ul>";}
  else if(unknown.length){box.className="market-check pending";box.innerHTML="<b>市販製剤の可能性あり：規格情報不足</b><p>同一成分・同一剤形の候補がありますが、マスター上の規格を確定できません。算定可とは判定せず、候補の規格を確認してください。</p><ul>"+list(unknown)+"</ul>";}
  else{box.className="market-check clear";const other=sameForm.length?("<p>同一成分・同一剤形で別規格の収載品：</p><ul>"+list(sameForm)+"</ul>"):"";box.innerHTML="<b>同一規格の市販製剤なし（マスター照合結果）</b><p>同一成分・同一剤形・同一規格の収載品は見つかりませんでした。これは算定可の確定ではありません。マスター収載範囲・一般名の同一性・製剤後規格を確認したうえで、他の算定要件を判定します。</p>"+other;}
