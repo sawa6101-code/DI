@@ -1,0 +1,81 @@
+name: Build internal-use medicine master
+
+on:
+  push:
+    paths:
+      - ".github/workflows/build-drug-master.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract internal-use medicines from official HPDX master
+        run: |
+          python - <<'PY'
+          import csv
+          import io
+          import json
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+
+          url = "https://www.hpdx.or.jp/seikyushiharai/tensuhyo/kihonmasta/kihonmasta_04.files/y_ALL20261112.zip"
+          with urllib.request.urlopen(url, timeout=60) as response:
+              archive_bytes = response.read()
+
+          with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+              csv_name = next(name for name in archive.namelist() if name.lower().endswith(".csv"))
+              with archive.open(csv_name) as raw:
+                  text = io.TextIOWrapper(raw, encoding="cp932", newline="")
+                  rows = list(csv.reader(text))
+
+          if not rows or any(len(row) < 42 for row in rows):
+              raise RuntimeError("Unexpected HPDX medicine master layout")
+
+          oral = []
+          for row in rows:
+              # Field 28 (1-based): dosage-form category; 1 = internal-use medicine.
+              if row[27] != "1":
+                  continue
+              oral.append({
+                  "code": row[2],
+                  "name": row[4],
+                  "officialName": row[34],
+                  "ingredient": row[37],
+                  "strength": "",
+                  "form": "内用薬",
+                  "unit": row[9],
+                  "price": row[11],
+                  "yjCode": row[31],
+                  "genericCode": row[36],
+                  "validFrom": row[29],
+                  "validTo": row[30],
+              })
+
+          if not oral:
+              raise RuntimeError("No internal-use medicines found")
+
+          output = Path("jikaseizai-hantei/drug_master.json")
+          output.write_text(json.dumps(oral, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+          print(f"Extracted {len(oral)} internal-use medicine records from {len(rows)} master records.")
+          print(f"Wrote {output} ({output.stat().st_size} bytes).")
+          PY
+
+      - name: Commit updated master
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add jikaseizai-hantei/drug_master.json
+          if git diff --cached --quiet; then
+            echo "No master changes."
+          else
+            git commit -m "Add official internal-use medicine master"
+            git push
+          fi
