@@ -60,9 +60,16 @@ $("masterFile").onchange=async e=>{
  const rows=parseCSV(new TextDecoder("shift_jis").decode(await f.arrayBuffer()));
  if(rows.length<2){alert("CSVの形式を確認してください");return}
  const head=rows[0].map(x=>x.trim()),find=(...ks)=>head.findIndex(h=>ks.some(k=>h.includes(k)));
- const ix={code:find("医薬品コード","レセ電コード"),name:find("漢字名称","品名","医薬品名","薬品名"),basic:find("基本漢字名称"),genericCode:find("一般名コード"),genericName:find("一般名処方の標準的な記載","一般名"),yj:find("薬価基準収載医薬品コード","YJコード"),form:find("剤形"),end:find("廃止年月日","廃止日")};
- if(ix.name<0){alert("品名列を特定できません。HPDX医薬品マスター全件CSVを使用してください");return}
- const data=rows.slice(1).map(r=>({code:r[ix.code]||"",name:r[ix.name]||"",officialName:ix.basic>=0?r[ix.basic]:"",genericCode:ix.genericCode>=0?r[ix.genericCode]:"",genericName:ix.genericName>=0?r[ix.genericName]:"",yjCode:ix.yj>=0?r[ix.yj]:"",formCode:ix.form>=0?r[ix.form]:"1",discontinuedDate:ix.end>=0?r[ix.end]:""})).filter(d=>d.name.trim());
+ let data=[];
+ const hasHeader=head.some(h=>h.includes("漢字名称")||h.includes("医薬品コード")||h.includes("一般名コード"));
+ if(hasHeader){
+  const ix={code:find("医薬品コード","レセ電コード"),name:find("漢字名称","品名","医薬品名","薬品名"),basic:find("基本漢字名称"),genericCode:find("一般名コード"),genericName:find("一般名処方の標準的な記載","一般名"),yj:find("薬価基準収載医薬品コード","YJコード"),form:find("剤形"),end:find("廃止年月日","廃止日")};
+  if(ix.name<0){alert("品名列を特定できません。HPDX医薬品マスター全件CSVを使用してください");return}
+  data=rows.slice(1).map(r=>({code:r[ix.code]||"",name:r[ix.name]||"",officialName:ix.basic>=0?r[ix.basic]:"",genericCode:ix.genericCode>=0?r[ix.genericCode]:"",genericName:ix.genericName>=0?r[ix.genericName]:"",yjCode:ix.yj>=0?r[ix.yj]:"",formCode:ix.form>=0?r[ix.form]:"1",discontinuedDate:ix.end>=0?r[ix.end]:""})).filter(d=>d.name.trim());
+ }else{
+  // Headerless HPDX fixed-layout medicine master (2026 format).
+  data=rows.filter(r=>r.length>=38&&r[1]==="Y"&&r[27]==="1").map(r=>({code:r[2]||"",name:r[4]||"",officialName:r[34]||"",discontinuedDate:r[30]||"",yjCode:r[31]||"",genericCode:r[36]||"",genericName:r[37]||"",formCode:r[27],masterDate:"2026-11-12"})).filter(d=>d.name.trim());
+ }
  if(!confirm(data.length+"件を読み込みます。既存マスターを置き換えますか？"))return;
  master=data;masterReady=true;saveMaster();$("masterStatus").textContent="取り込み済み："+data.length.toLocaleString()+"件（剤形・規格照合を実行できます）";renderResults(master.slice(0,100));runMarketCheck();e.target.value="";
 };
