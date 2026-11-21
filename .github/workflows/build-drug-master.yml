@@ -27,7 +27,7 @@ jobs:
           from pathlib import Path
 
           url = "https://www.hpdx.or.jp/seikyushiharai/tensuhyo/kihonmasta/kihonmasta_04.files/y_ALL20261112.zip"
-          with urllib.request.urlopen(url, timeout=60) as response:
+          with urllib.request.urlopen(url, timeout=90) as response:
               archive_bytes = response.read()
 
           with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
@@ -37,26 +37,29 @@ jobs:
                   rows = list(csv.reader(text))
 
           if not rows or any(len(row) < 42 for row in rows):
-              raise RuntimeError("Unexpected HPDX medicine master layout")
+              raise RuntimeError("Unexpected HPDX medicine master layout; expected fields through item 42.")
 
+          # HPDX 2026 layout:
+          # 3=drug code, 5=name, 28=dosage category (1=internal),
+          # 31=discontinuation date, 32=YJ code, 35=basic name,
+          # 37=generic-name code, 38=standard generic-name description.
           oral = []
           for row in rows:
-              # Field 28 (1-based): dosage-form category; 1 = internal-use medicine.
-              if row[27] != "1":
+              if row[1] != "Y" or row[27] != "1":
                   continue
               oral.append({
                   "code": row[2],
                   "name": row[4],
-                  "officialName": row[34],
-                  "ingredient": row[37],
-                  "strength": "",
-                  "form": "内用薬",
                   "unit": row[9],
                   "price": row[11],
+                  "officialName": row[34],
+                  "discontinuedDate": row[30],
                   "yjCode": row[31],
                   "genericCode": row[36],
-                  "validFrom": row[29],
-                  "validTo": row[30],
+                  "genericName": row[37],
+                  "genericAdditiveClass": row[38] if len(row) > 38 else "",
+                  "formCode": row[27],
+                  "masterDate": "2026-11-12",
               })
 
           if not oral:
@@ -64,7 +67,8 @@ jobs:
 
           output = Path("jikaseizai-hantei/drug_master.json")
           output.write_text(json.dumps(oral, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-          print(f"Extracted {len(oral)} internal-use medicine records from {len(rows)} master records.")
+          print(f"Extracted {len(oral)} internal-use records from {len(rows)} records.")
+          print(f"Rows with generic-name description: {sum(bool(x['genericName']) for x in oral)}")
           print(f"Wrote {output} ({output.stat().st_size} bytes).")
           PY
 
@@ -76,6 +80,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No master changes."
           else
-            git commit -m "Add official internal-use medicine master"
+            git commit -m "Build internal-use medicine master for market-form matching"
             git push
           fi
