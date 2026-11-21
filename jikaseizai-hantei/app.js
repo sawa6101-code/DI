@@ -12,14 +12,18 @@ function extractStrength(s){
 function productStrength(d){return extractStrength(d.strength)||extractStrength(d.genericName)||extractStrength(d.officialName)||extractStrength(d.name)}
 function detectForm(d){
  const s=[d.genericName,d.officialName,d.name].filter(Boolean).join(" ").normalize("NFKC");
+ if(/口腔内崩壊|ＯＤ錠|OD錠/.test(s))return"口腔内崩壊錠";
+ if(/分散錠/.test(s))return"分散錠";
+ if(/粒状錠/.test(s))return"粒状錠";
+ if(/カプセル/.test(s))return"カプセル";
+ if(/丸剤/.test(s))return"丸剤";
+ if(/散剤|散(?:\s|\d|\.)|細粒|顆粒|末剤|粉末/.test(s))return"散剤・顆粒剤群";
  if(/ドライシロップ/.test(s))return"ドライシロップ";
  if(/経口ゼリー|ゼリー剤/.test(s))return"経口ゼリー";
  if(/シロップ|内用液|経口液|液剤/.test(s))return"液剤";
+ if(/バッカル/.test(s))return"バッカル錠";
+ if(/舌下錠/.test(s))return"舌下錠";
  if(/チュアブル/.test(s))return"チュアブル";
- if(/カプセル/.test(s))return"カプセル";
- if(/細粒|顆粒/.test(s))return"顆粒・細粒";
- if(/散剤|散(?:\s|\d|\.)|末剤|粉末/.test(s))return"散剤";
- if(/口腔内崩壊|ＯＤ錠|OD錠/.test(s))return"口腔内崩壊錠";
  if(/錠剤|錠(?:\s|\d|\.)/.test(s))return"錠剤";
  if(/トローチ/.test(s))return"トローチ";
  return"判別不能";
@@ -29,7 +33,7 @@ function ingredientKey(d){
  if(!base)return"";
  return normalize(base)
   .replace(/\d+(?:\.\d+)?(?:mg|ug|g|%|ml|単位|万単位|億単位)/gi,"")
-  .replace(/(口腔内崩壊錠|ドライシロップ|シロップ|経口ゼリー|チュアブル|カプセル剤|カプセル|散剤|細粒剤|細粒|顆粒剤|顆粒|錠剤|錠|液剤|内用液|末剤|粉末)/g,"")
+  .replace(/(口腔内崩壊錠|分散錠|粒状錠|ドライシロップ|シロップ|経口ゼリー|チュアブル|バッカル錠|舌下錠|カプセル剤|カプセル|丸剤|散剤|細粒剤|細粒|顆粒剤|顆粒|錠剤|錠|液剤|内用液|末剤|粉末)/g,"")
   .replace(/(標準的な記載|一般名処方|【般】)/g,"");
 }
 function currentOnDate(d,date){
